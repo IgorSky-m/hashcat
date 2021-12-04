@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5432/hashcat
+    username: postgres
+    password: 'root'
+    hikari:
+#      connection-test-query: SELECT 1
+      auto-commit: false
+      minimum-idle: 1
+      maximum-pool-size: 40
+      pool-name: catalogPool
+    type: com.zaxxer.hikari.HikariDataSource
+
+# Hibernate properties
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+#      physical-naming-strategy: com.diary.config.HibernateCustomNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQL94Dialect
+      javax:
+        persistence:
+          sharedCache:
+            mode: ENABLE_SELECTIVE
+
+server:
+  port: 8080

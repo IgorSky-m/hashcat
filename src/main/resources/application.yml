@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: hashcat
+  profiles:
+    include:
+      custom
+    active:
+      dev
+  jackson:
+    serialization:
+      write-dates-as-timestamps: true
+  # SSL protocol to use
+  server:
+    ssl:
+      protocol: TLS
+      enabled-protocols: TLSv1.2
+
