@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/requests")
+@RequestMapping("/api/applications")
 public class RequestRestController {
 
     private final IRequestService service;
