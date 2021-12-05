@@ -2,8 +2,6 @@ spring:
   application:
     name: hashcat
   profiles:
-    include:
-      custom
     active:
       dev
   jackson:
@@ -14,4 +12,40 @@ spring:
     ssl:
       protocol: TLS
       enabled-protocols: TLSv1.2
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: hashcat.tt@gmail.com
+    password: 'hashcat.test.task'
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
+
+
+# custom properties
+hashcat:
+  tt:
+    https:
+      protocols: "TLSv1,TLSv1.1,TLSv1.2"
+    md5:
+      service:
+        url: https://md5decrypt.net/en/Api/api.php
+        email: hashcat.tt@gmail.com
+        code: b7a03d4e56234d0b
+        type: md5
+        validation-pattern: '^[a-fA-F0-9]{32}$'
+    email:
+      base:
+        subjects:
+          confirm: 'Confirm your email'
+    executors:
+      basic:
+        pool:
+          size: 100
+    database:
+      default:
+        schema: hashcat

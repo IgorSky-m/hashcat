@@ -2,12 +2,12 @@ package tt.haschat.repositories.api;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import tt.haschat.dto.Request;
+import tt.haschat.dto.Email;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface IRequestRepository extends JpaRepository<Request, UUID> {
-    List<Request> findAllByEmail(String email);
+public interface IEmailRepository extends JpaRepository<Email, UUID> {
+    Optional<Email> findByEmail(String email);
 }

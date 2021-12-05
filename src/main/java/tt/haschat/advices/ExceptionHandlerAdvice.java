@@ -1,7 +1,6 @@
 package tt.haschat.advices;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -17,13 +16,11 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * Совет для перехвата ошибок и вывод наружу нужных статусов
+ * Совет для перехвата ошибок и вывода нужного текста и статуса
  */
 @ControllerAdvice
+@Slf4j
 public class ExceptionHandlerAdvice {
-
-
-    private static final Logger logger = LoggerFactory.getLogger(ExceptionHandlerAdvice.class);
 
     private final MessageSource messageSource;
 
@@ -35,12 +32,22 @@ public class ExceptionHandlerAdvice {
     @ResponseBody
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(CustomValidationException.class)
-    public Map<String, String> MethodArgumentNotValidExceptionHandler(CustomValidationException ex) {
+    public Map<String, String> validationExceptionHandler(CustomValidationException ex) {
         if (ex.getStructuredMessages() == null || ex.getStructuredMessages().isEmpty()){
             String msg = messageSource.getMessage("validation.error.default", null, LocaleContextHolder.getLocale());
             return Collections.singletonMap("error_msg", msg);
         }
         return ex.getStructuredMessages();
+    }
+
+    @ResponseBody
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public String illegalArgumentException(IllegalArgumentException ex) {
+        if (ex.getMessage() == null || ex.getMessage().isEmpty()){
+            return messageSource.getMessage("error.bad.request.default", null, LocaleContextHolder.getLocale());
+        }
+        return ex.getMessage();
     }
 
     @ResponseBody
@@ -67,7 +74,7 @@ public class ExceptionHandlerAdvice {
     @ExceptionHandler(Exception.class)
     public String unknownExceptionHandler(Exception ex) {
         String msg = messageSource.getMessage("error.default", null, LocaleContextHolder.getLocale());
-        logger.error(msg, ex);
+        log.error(msg, ex);
         return msg;
     }
 

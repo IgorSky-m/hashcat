@@ -31,6 +31,7 @@ public class Md5DecoderService implements IMd5DecoderService {
     private final RestTemplate restTemplate;
     private final Map<String, String> propertiesMap;
     private final MessageSource messageSource;
+
     public Md5DecoderService(
             IResponseService responseService,
             Md5Properties md5Properties,
@@ -86,11 +87,9 @@ public class Md5DecoderService implements IMd5DecoderService {
             return Collections.EMPTY_LIST;
         }
 
-        Date dtLastRetrieval = new Date();
-
         if (resp == null) {
             resp = "";
-            return Collections.singletonList(new Response(hashes[0], resp, dtLastRetrieval));
+            return Collections.singletonList(new Response(hashes[0], resp));
         }
 
         String[] responses = resp.replaceAll(";", " ;").split(";");
@@ -103,7 +102,7 @@ public class Md5DecoderService implements IMd5DecoderService {
                 log.warn(String.format(VENDOR_ERROR_MESSAGE, hashes[i], err.code, err.description));
                 response = "";
             }
-            result.add(new Response(hashes[i], response, dtLastRetrieval));
+            result.add(new Response(hashes[i], response));
         }
         return result;
     }

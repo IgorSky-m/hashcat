@@ -1,19 +1,23 @@
 package tt.haschat.services;
 
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import tt.haschat.config.AsyncConfig;
+import tt.haschat.dto.Email;
 import tt.haschat.dto.Request;
 import tt.haschat.dto.api.State;
 import tt.haschat.exceptions.CustomApplicationException;
+import tt.haschat.exceptions.DecodeException;
 import tt.haschat.exceptions.EntityNotFound;
+import tt.haschat.processors.DecodeProcessor;
+import tt.haschat.repositories.api.IEmailRepository;
 import tt.haschat.repositories.api.IRequestRepository;
-import tt.haschat.services.api.IMd5DecoderService;
+import tt.haschat.services.api.IMsgSenderService;
 import tt.haschat.services.api.IRequestService;
 import tt.haschat.services.api.IResponseService;
 import tt.haschat.validators.api.IValidator;
@@ -21,37 +25,39 @@ import tt.haschat.validators.api.IValidator;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.SubmissionPublisher;
 
 @Slf4j
 @Service
-public class RequestService implements IRequestService {
-
-    private static final Logger logger = LoggerFactory.getLogger(RequestService.class);
+public class RequestService extends SubmissionPublisher<Request> implements IRequestService {
 
     private final IRequestRepository requestRepository;
+    private final IEmailRepository emailRepository;
     private final IResponseService responseService;
     private final IValidator<Request> validator;
     private final MessageSource messageSource;
-    private final IMd5DecoderService md5DecoderService;
-
-    private final TransactionTemplate transactionTemplate;
-
+    private final IMsgSenderService msgSenderService;
 
     public RequestService(
+            @Qualifier(AsyncConfig.ASYNC_EXECUTOR_BEAN_NAME) Executor executor,
             IRequestRepository requestRepository,
+            IEmailRepository emailRepository,
             IResponseService responseService,
             IValidator<Request> validator,
             MessageSource messageSource,
-            IMd5DecoderService md5DecoderService,
-            TransactionTemplate transactionTemplate
+            IMsgSenderService msgSenderService,
+            DecodeProcessor decodeProcessor
     ){
+        super(executor, 10);
         this.requestRepository = requestRepository;
+        this.emailRepository = emailRepository;
         this.responseService = responseService;
         this.validator = validator;
         this.messageSource = messageSource;
-        this.md5DecoderService = md5DecoderService;
-        this.transactionTemplate = transactionTemplate;
+        this.msgSenderService = msgSenderService;
+
+        this.subscribe(decodeProcessor);
     }
 
     @Transactional
@@ -59,15 +65,24 @@ public class RequestService implements IRequestService {
         request.setUuid(UUID.randomUUID());
         request.setDtCreate(new Date());
         request.setDtUpdate(request.getDtCreate());
-        request.setState(State.IN_PROGRESS);
         this.validator.validate(request);
         try {
+            Email email = this.emailRepository.findByEmail(request.getEmail()).orElse(null);
+            boolean needConfirmEmail = email == null || !email.isConfirmed();
+            request.setState(needConfirmEmail ? State.WAIT : State.IN_PROGRESS);
             Request savedRequest = this.requestRepository.save(request);
-            this.decodeAsync(savedRequest);
+            if (needConfirmEmail) {
+                if (email == null) {
+                    email = this.emailRepository.save(new Email(UUID.randomUUID(), request.getEmail(), false));
+                }
+                this.sendConfirmMaiLink(email);
+            } else {
+                this.startDecode(savedRequest);
+            }
             return request;
         } catch (Exception e) {
             String msg = messageSource.getMessage("error.crud.create", null, LocaleContextHolder.getLocale());
-            logger.error(msg,e);
+            log.error(msg,e);
             throw new CustomApplicationException(msg);
         }
     }
@@ -85,64 +100,73 @@ public class RequestService implements IRequestService {
             throw e;
         } catch (Exception e){
             String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
-            logger.error(msg,e);
+            log.error(msg,e);
             throw new CustomApplicationException(msg);
         }
 
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
-    public List<Request> getAllByEmail(String email) {
+    public void confirmRequest(UUID mailId) {
         try {
-            return this.requestRepository.findAllByEmail(email);
-        } catch (Exception e){
-            String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
-            logger.error(msg,e);
-            throw new CustomApplicationException(msg);
-        }
-    }
-
-    @Transactional(readOnly = true)
-    @Override
-    public List<Request> getAll() {
-        try {
-            return this.requestRepository.findAll();
-        } catch (Exception e) {
-            String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
-            logger.error(msg, e);
-            throw new CustomApplicationException(msg);
-        }
-    }
-
-
-    private void decodeAsync(Request request){
-        CompletableFuture
-                .supplyAsync(() -> {
-                    assert request != null;
-                    return this.md5DecoderService.decode(request.getHashes());
-                })
-                .thenAccept((r) ->
-                        transactionTemplate.execute((e) -> {
-                            this.responseService.saveResponses(r);
-                            Request readReq = this.requestRepository.findById(request.getUuid()).orElseThrow(EntityNotFound::new);
-                            readReq.setState(State.COMPLETE);
-                            readReq.setDtUpdate(new Date());
-                            return this.requestRepository.save(readReq);
-                        })
-                )
-                .exceptionally((ex) -> {
-                    if (ex != null) {
-                        log.error(ex.getMessage());
-                        transactionTemplate.execute((e) -> {
-                            Request readReq = this.requestRepository.findById(request.getUuid()).orElseThrow(EntityNotFound::new);
-                            readReq.setState(State.FAIL);
-                            readReq.setDtUpdate(new Date());
-                            return this.requestRepository.save(readReq);
-                        });
-                    }
-
-                    return null;
+            Email email = this.emailRepository.findById(mailId).orElse(null);
+            if (email != null && email.isConfirmed()) {
+                throw new IllegalArgumentException(messageSource.getMessage("email.already.confirmed.error", null, LocaleContextHolder.getLocale()));
+            } else if (email == null) {
+                throw new IllegalArgumentException(messageSource.getMessage("email.broken.link.error", null, LocaleContextHolder.getLocale()));
+            } else {
+                email.setConfirmed(true);
+                this.emailRepository.save(email);
+                List<Request> allByEmail = this.requestRepository.findAllByEmail(email.getEmail());
+                Date dtUpdate = new Date();
+                allByEmail.forEach(e -> {
+                    e.setState(State.IN_PROGRESS);
+                    e.setDtUpdate(dtUpdate);
                 });
+                this.requestRepository.saveAll(allByEmail).forEach(this::startDecode);
+            }
+        } catch (EntityNotFound | IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = messageSource.getMessage("error.crud.update", null, LocaleContextHolder.getLocale());
+            log.error(msg,e);
+            throw new CustomApplicationException(msg);
+        }
     }
+
+    private void startDecode(Request request) {
+        this.offer(request, (subscriber, req) -> {
+            subscriber.onError(new DecodeException("droped because of backpressure"));
+            return true;
+        });
+    }
+
+    @Transactional
+    @Override
+    public Request save(Request request) {
+        try {
+            return this.requestRepository.save(request);
+        } catch (Exception e) {
+            String msg = messageSource.getMessage("error.crud.create", null, LocaleContextHolder.getLocale());
+            log.error(msg, e);
+            throw new CustomApplicationException(msg);
+        }
+    }
+
+
+    private void sendConfirmMaiLink(Email email){
+            String confirmLink = ServletUriComponentsBuilder
+                    .fromCurrentRequest()
+                    .path("/email/{mail_id}/confirm")
+                    .buildAndExpand(email.getUuid())
+                    .toUri()
+                    .toString();
+
+            this.msgSenderService.sendText(
+                    email.getEmail(),
+                    msgSenderService.getBaseSubjectText(EmailSenderService.DefaultSubjectTypes.CONFIRM.type),
+                    confirmLink
+            );
+        }
 }

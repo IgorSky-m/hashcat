@@ -9,7 +9,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-//TODO подумать над джоб, которая будет повторно делать запросы через время n (количество раз?) при статусе FAIL?
 /**
  * ДТО запроса
  */
@@ -41,7 +40,7 @@ public class Request {
 
 
     //Данные для обработки запроса
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> hashes;
 
     //Ответы

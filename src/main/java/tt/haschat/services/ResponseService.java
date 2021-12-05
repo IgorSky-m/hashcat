@@ -1,7 +1,6 @@
 package tt.haschat.services;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -16,9 +15,10 @@ import java.util.List;
 
 @Transactional(readOnly = true)
 @Service
+@Slf4j
 public class ResponseService implements IResponseService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ResponseService.class);
+
 
     private final IResponseRepository responseRepository;
     private final MessageSource messageSource;
@@ -35,7 +35,7 @@ public class ResponseService implements IResponseService {
             this.responseRepository.saveAll(responseList);
         } catch (Exception e) {
             String msg = messageSource.getMessage("error.crud.create", null, LocaleContextHolder.getLocale());
-            logger.error(msg,e);
+            log.error(msg,e);
             throw new CustomApplicationException(msg);
         }
     }
@@ -47,8 +47,8 @@ public class ResponseService implements IResponseService {
         } catch (EntityNotFound e) {
             throw e;
         } catch (Exception e) {
-        String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
-        logger.error(msg,e);
+            String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
+            log.error(msg,e);
         throw new CustomApplicationException(msg);
         }
     }
@@ -59,7 +59,7 @@ public class ResponseService implements IResponseService {
             return this.responseRepository.findAllById(hashList);
         } catch (Exception e) {
             String msg = messageSource.getMessage("error.crud.read", null, LocaleContextHolder.getLocale());
-            logger.error(msg,e);
+            log.error(msg,e);
             throw new CustomApplicationException(msg);
         }
     }

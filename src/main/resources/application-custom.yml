@@ -1,7 +1,0 @@
-md5:
-  service:
-    url: https://md5decrypt.net/en/Api/api.php
-    email: scarydisco@gmail.com
-    code: 713da205f54fd236
-    type: md5
-    validation-pattern: '^[a-fA-F0-9]{32}$'

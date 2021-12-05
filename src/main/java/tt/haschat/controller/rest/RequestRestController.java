@@ -9,7 +9,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tt.haschat.dto.Request;
 import tt.haschat.services.api.IRequestService;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -31,16 +30,15 @@ public class RequestRestController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).headers(httpHeaders).build();
     }
 
-
-
     @GetMapping("/{uuid}")
     public ResponseEntity<Request> getOne(@PathVariable UUID uuid) {
         return ResponseEntity.ok(this.service.getOneById(uuid));
     }
 
-    @GetMapping
-    public List<Request> getAll(){
-        return this.service.getAll();
+    @GetMapping("/email/{mail}/confirm")
+    public ResponseEntity<String> getByMail(@PathVariable UUID mail) {
+        this.service.confirmRequest(mail);
+        return ResponseEntity.ok("Email confirmed successfully");
     }
 
 }
