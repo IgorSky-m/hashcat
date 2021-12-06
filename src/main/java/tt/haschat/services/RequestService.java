@@ -160,7 +160,6 @@ public class RequestService extends SubmissionPublisher<Request> implements IReq
                     .fromCurrentRequest()
                     .path("/email/{mail_id}/confirm")
                     .buildAndExpand(email.getUuid())
-                    .toUri()
                     .toString();
 
             this.msgSenderService.sendText(

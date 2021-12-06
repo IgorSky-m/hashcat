@@ -26,7 +26,8 @@ public class RequestRestController {
         Request savedRequest = this.service.createNewRequest(request);
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setLocation(
-                ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}").buildAndExpand(savedRequest.getUuid()).toUri());
+                ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}").buildAndExpand(savedRequest.getUuid()).toUri()
+        );
         return ResponseEntity.status(HttpStatus.ACCEPTED).headers(httpHeaders).build();
     }
 

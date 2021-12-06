@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+  database:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: hashcat-db
+    restart: on-failure
+    ports:
+      - 3306:5432
+    environment:
+      POSTGRES_PASSWORD: pass
+  nginx:
+    build:
+      context: nginx
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    depends_on:
+      - hashcat
+  hashcat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: on-failure
+    command: --spring.profiles.active=stage
+    depends_on:
+      - database
+
+

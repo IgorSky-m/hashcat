@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://127.0.0.1:5432/hashcat_db
+    url: jdbc:postgresql://172.17.0.1:3306/hashcat_db?ApplicationName=hashcat
     username: postgres
-    password: 'root'
+    password: pass
     hikari:
 #      connection-test-query: SELECT 1
       auto-commit: false
